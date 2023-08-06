@@ -6,4 +6,4 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         # exclude = ("created_at",)
-        fields = "__all__"
+        fields = ("pk", "name", "kind")
