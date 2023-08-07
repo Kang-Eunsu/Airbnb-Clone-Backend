@@ -14,6 +14,7 @@ from rest_framework.exceptions import (
 from rest_framework.status import HTTP_204_NO_CONTENT
 from django.db import transaction
 from reviews.serializers import ReviewSerializer
+from django.conf import settings
 
 
 class Amenities(APIView):
@@ -180,7 +181,7 @@ class RoomReviews(APIView):
             page = int(page)
         except ValueError:
             page = 1
-        page_size = 3
+        page_size = settings.PAGE_SIZE
         start = (page - 1) * page_size
         end = start + page_size
 
@@ -188,7 +189,7 @@ class RoomReviews(APIView):
         serializer = ReviewSerializer(
             room.reviews.all()[start:end],
             many=True,
-        )  # only for test
+        )
         return Response(serializer.data)
 
 
@@ -206,7 +207,7 @@ class RoomAmenities(APIView):
         except ValueError:
             page = 1
 
-        page_size = 3
+        page_size = settings.PAGE_SIZE
         start = (page - 1) * page_size
         end = start + page_size
 
@@ -216,3 +217,14 @@ class RoomAmenities(APIView):
             many=True,
         )
         return Response(serializer.data)
+
+
+class RoomPhotos(APIView):
+    def get_object(self, pk):
+        try:
+            return Room.objects.get(pk=pk)
+        except Room.DoesNotExist:
+            raise NotFound
+
+    def post(self, request, pk):
+        pass
