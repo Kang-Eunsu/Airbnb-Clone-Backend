@@ -188,7 +188,7 @@ class RoomReviews(APIView):
         serializer = ReviewSerializer(
             room.reviews.all()[start:end],
             many=True,
-        )
+        )  # only for test
         return Response(serializer.data)
 
 
