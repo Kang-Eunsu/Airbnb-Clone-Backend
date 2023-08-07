@@ -1,0 +1,14 @@
+{
+    "name": "Apt in Seoul",
+    "country": "한국",
+    "city": "서울",
+    "price": 0,
+    "rooms": 2,
+    "toilets": 2,
+    "description": "Good Apt",
+    "address": "1212",
+    "pet_friendly": true,
+    "category":3,
+    "amenities":[1,2],
+    "kind": "private_room"
+}

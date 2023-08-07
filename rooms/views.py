@@ -5,8 +5,14 @@ from categories.models import Category
 from rest_framework.views import APIView
 from .serializers import AmenitySerializer, RoomListSerializer, RoomDetailSerializer
 from rest_framework.response import Response
-from rest_framework.exceptions import NotFound, NotAuthenticated, ParseError
+from rest_framework.exceptions import (
+    NotFound,
+    NotAuthenticated,
+    ParseError,
+    PermissionDenied,
+)
 from rest_framework.status import HTTP_204_NO_CONTENT
+from django.db import transaction
 
 
 class Amenities(APIView):
@@ -77,19 +83,20 @@ class Rooms(APIView):
                         raise ParseError("The category kind should be 'rooms'")
                 except Category.DoesNotExist:
                     raise ParseError("Category Not found")
-                room = serializer.save(
-                    owner=request.user,
-                    category=category,
-                )
-                amenities = request.data.get("amenities")
-                for amenity_pk in amenities:
-                    try:
-                        amenity = Amenity.objects.get(pk=amenity_pk)
-                    except Amenity.DoesNotExist:
-                        raise ParseError("Amenity with id {amenity_pk} not found")
-                    room.amenities.add(amenity)
-                serializer = RoomDetailSerializer(room)
-                return Response(serializer.data)
+                try:
+                    with transaction.atomic():
+                        room = serializer.save(
+                            owner=request.user,
+                            category=category,
+                        )
+                        amenities = request.data.get("amenities")
+                        for amenity_pk in amenities:
+                            amenity = Amenity.objects.get(pk=amenity_pk)
+                            room.amenities.add(amenity)
+                        serializer = RoomDetailSerializer(room)
+                        return Response(serializer.data)
+                except Exception:
+                    raise ParseError("Amenity Not found")
             else:
                 return Response(serializer.errors)
         else:
@@ -107,3 +114,50 @@ class RoomDetail(APIView):
         room = self.get_object(pk)
         serializer = RoomDetailSerializer(room)
         return Response(serializer.data)
+
+    def put(self, request, pk):
+        room = self.get_object(pk)
+        if not request.user.is_authenticated:
+            raise NotAuthenticated
+        if room.owner != request.user:
+            raise PermissionDenied
+        serializer = RoomDetailSerializer(
+            room,
+            request.data,
+            partial=True,
+        )
+        if serializer.is_valid():
+            category_pk = request.data.get("category")
+            if category_pk:
+                try:
+                    category = Category.objects.get(pk=category_pk)
+                    if category.kind == Category.CategoryKindChoices.EXPERIENCES:
+                        raise ParseError("The category kind should be rooms")
+
+                except Category.DoesNotExist:
+                    raise ParseError("Category Not found")
+
+            try:
+                with transaction.atomic():
+                    if not category_pk:
+                        room = serializer.save()
+                    else:
+                        room = serializer.save(category=category)
+                    amenities_list = request.data.get("amenities")
+                    if amenities_list:
+                        room = serializer.save(amenities=amenities_list)
+
+                    return Response(RoomDetailSerializer(room).data)
+            except Exception:
+                raise ParseError("Amenity not found")
+        else:
+            return Response(serializer.errors)
+
+    def delete(self, request, pk):
+        room = self.get_object(pk)
+        if not request.user.is_authenticated:
+            raise NotAuthenticated
+        if room.owner != request.user:
+            raise PermissionDenied
+        room.delete()
+        return Response(status=HTTP_204_NO_CONTENT)
